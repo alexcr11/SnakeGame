@@ -5,12 +5,14 @@ import javax.swing.*;
 import java.util.Random;
 
 public class GamePanel extends JPanel implements ActionListener {
-
     private static final long serialVersionUID = 1L;
+    private static final int WIDTH = 500;
+    private static final int HEIGHT = 500;
+    private static final int UNIT_SIZE = 20;
 
-    static final int WIDTH = 500;
-    static final int HEIGHT = 500;
-    static final int UNIT_SIZE = 20;
+    private final Food food;
+    private final Food food2;
+
     static final int NUMBER_OF_UNITS = (WIDTH * HEIGHT) / (UNIT_SIZE * UNIT_SIZE);
 
     final int x[] = new int[NUMBER_OF_UNITS];
@@ -19,18 +21,22 @@ public class GamePanel extends JPanel implements ActionListener {
     int length = 5;
     int foodEaten;
     int mostFoodEaten;
-    int foodX;
-    int foodY;
-    int foodX2;
-    int foodY2;
     char direction = 'D';
     boolean running = false;
     Random random;
     Timer timer;
     JButton playAgainButton;
+    JButton mainMenuButton;
+    JButton quitButton;
+    JButton playButton;
+    JButton settingsButton;
+
+    boolean showMainMenu = true;
 
     GamePanel() {
         random = new Random();
+        food = new Food(UNIT_SIZE, WIDTH, HEIGHT);  // Initialize Food with unit size and screen dimensions
+        food2 = new Food(UNIT_SIZE, WIDTH, HEIGHT);  // Initialize Food with unit size and screen dimensions
         this.setPreferredSize(new Dimension(WIDTH, HEIGHT));
         this.setBackground(Color.BLACK);
         this.setFocusable(true);
@@ -43,13 +49,49 @@ public class GamePanel extends JPanel implements ActionListener {
         playAgainButton.setBounds((WIDTH - 100) / 2, HEIGHT / 2 + 50, 100, 30); // Position and size
         playAgainButton.setFocusable(false);
         playAgainButton.addActionListener(e -> restartGame());
-        playAgainButton.setVisible(false); // Hide button initially
-        this.add(playAgainButton);
+        playAgainButton.setVisible(false); // Hide button initially// Create and add the "Play Again" button
 
-        play();
+        mainMenuButton = new JButton("Main Menu");
+        mainMenuButton.setBounds((WIDTH - 100) / 2, HEIGHT / 2 + 90, 100, 30); // Position and size
+        mainMenuButton.setFocusable(false);
+        mainMenuButton.addActionListener(e -> gameMenu());
+        mainMenuButton.setVisible(false); // Hide button initially
+
+        quitButton = new JButton("Quit");
+        quitButton.setBounds((WIDTH - 100) / 2, HEIGHT / 2 + 170, 100, 30); // Position and size
+        quitButton.setFocusable(false);
+        quitButton.addActionListener(e -> quit());
+        quitButton.setVisible(true); // Hide button initially
+
+        playButton = new JButton("Play Game");
+        playButton.setBounds((WIDTH - 100) / 2, HEIGHT / 2 + 90, 100, 30); // Position and size
+        playButton.setFocusable(false);
+        playButton.addActionListener(e -> play());
+        playButton.setVisible(true);
+
+        settingsButton = new JButton("Settings");
+        settingsButton.setBounds((WIDTH - 100) / 2, HEIGHT / 2 + 130, 100, 30); // Position and size
+        settingsButton.setFocusable(false);
+        settingsButton.addActionListener(e -> settings());
+        settingsButton.setVisible(true);
+
+        this.add(playAgainButton);
+        this.add(mainMenuButton);
+        this.add(quitButton);
+        this.add(playButton);
+        this.add(settingsButton);
     }
 
     public void play() {
+         // Start the game and hide the main menu
+        showMainMenu = false;
+        playButton.setVisible(false);
+        quitButton.setVisible(false);
+        // Initialize snake's position at the top-left or starting position
+        for (int i = 0; i < length; i++) {
+            x[i] = UNIT_SIZE * (length - i); // Align the segments horizontally
+            y[i] = 0; // Start on the top row
+        }
         addFood();
         running = true;
         direction = 'D';
@@ -60,9 +102,29 @@ public class GamePanel extends JPanel implements ActionListener {
         timer.start();
     }
 
+    public void settings() {
+        showMainMenu = false;
+        playButton.setVisible(false);
+        settingsButton.setVisible(false);
+        quitButton.setVisible(false);
+    }
+
     public void paintComponent(Graphics graphics) {
         super.paintComponent(graphics);
-        draw(graphics);
+
+        if (showMainMenu) {
+            // Display the main menu screen
+            graphics.setColor(Color.GREEN);
+            graphics.setFont(new Font("Sans serif", Font.ROMAN_BASELINE, 50));
+            FontMetrics metrics = getFontMetrics(graphics.getFont());
+            graphics.drawString("Snake Game", (WIDTH - metrics.stringWidth("Snake Game")) / 2, HEIGHT / 2);
+        } else if (running) {
+            // Draw game elements if running
+            draw(graphics);
+        } else {
+            // Show game over screen if the game is not running
+            gameOver(graphics);
+        }
     }
 
     public void move() {
@@ -84,21 +146,17 @@ public class GamePanel extends JPanel implements ActionListener {
 
     public void checkFood() {
         // Check collision with the first food item
-        if (x[0] == foodX && y[0] == foodY) {
+        if (food.isAtPosition(x[0], y[0])) {
             length++;
             foodEaten++;
-            // Only reposition the first food
-            foodX = random.nextInt(WIDTH / UNIT_SIZE) * UNIT_SIZE;
-            foodY = random.nextInt(HEIGHT / UNIT_SIZE) * UNIT_SIZE;
+            food.generateNewPosition();  // Generate a new position when food is eaten
         }
 
         // Check collision with the second food item
-        if (x[0] == foodX2 && y[0] == foodY2) {
+        if (food2.isAtPosition(x[0], y[0])) {
             length++;
             foodEaten++;
-            // Only reposition the second food
-            foodX2 = random.nextInt(WIDTH / UNIT_SIZE) * UNIT_SIZE;
-            foodY2 = random.nextInt(HEIGHT / UNIT_SIZE) * UNIT_SIZE;
+            food2.generateNewPosition(); // Generate a new position when food is eaten
         }
 
         switch (foodEaten) {
@@ -122,18 +180,18 @@ public class GamePanel extends JPanel implements ActionListener {
         if (running) {
             // Draw first food item
             graphics.setColor(new Color(250, 0, 0));
-            graphics.fillOval(foodX, foodY, UNIT_SIZE, UNIT_SIZE);
+            graphics.fillOval(food.getX(), food.getY(), UNIT_SIZE, UNIT_SIZE);
 
             // Draw second food item
-            graphics.setColor(new Color(210, 0, 20));
-            graphics.fillOval(foodX2, foodY2, UNIT_SIZE, UNIT_SIZE);
+            graphics.setColor(new Color(250, 0, 0));
+            graphics.fillOval(food2.getX(), food2.getY(), UNIT_SIZE, UNIT_SIZE);
 
             // Decide snake color based on foodEaten
             Color snakeHeadColor;
             Color snakeBodyColor;
 
             if (foodEaten >= 50) {
-                // Hard mode with random colors for each frame
+                // Hard mode with random colors after eating 50 food
                 snakeHeadColor = new Color(random.nextInt(55), random.nextInt(200), random.nextInt(100));
                 snakeBodyColor = new Color(random.nextInt(55), random.nextInt(200), random.nextInt(150));
             } else {
@@ -160,14 +218,12 @@ public class GamePanel extends JPanel implements ActionListener {
     }
 
     public void addFood() {
-        foodX = random.nextInt(WIDTH / UNIT_SIZE) * UNIT_SIZE;
-        foodY = random.nextInt(HEIGHT / UNIT_SIZE) * UNIT_SIZE;
+        food.generateNewPosition();
 
         // Place the second food item at a different position
         do {
-            foodX2 = random.nextInt(WIDTH / UNIT_SIZE) * UNIT_SIZE;
-            foodY2 = random.nextInt(HEIGHT / UNIT_SIZE) * UNIT_SIZE;
-        } while (foodX2 == foodX && foodY2 == foodY); // Ensures it doesn’t overlap with the first food
+            food2.generateNewPosition();
+        } while (food2.getX() == food.getX() && food.getY() == food2.getY()); // Ensures it doesn’t overlap with the first food
     }
 
     public void checkHit() {
@@ -186,6 +242,8 @@ public class GamePanel extends JPanel implements ActionListener {
         if (!running) {
             timer.stop();
             playAgainButton.setVisible(true); // Show "Play Again" button on game over
+            mainMenuButton.setVisible(true);
+            quitButton.setVisible(true);
         }
     }
 
@@ -210,6 +268,8 @@ public class GamePanel extends JPanel implements ActionListener {
     // Restart game method
     public void restartGame() {
         playAgainButton.setVisible(false); // Hide the "Play Again" button
+        mainMenuButton.setVisible(false); // Hide the "main menu" button
+        quitButton.setVisible(false); // Hide the "quit" button
         running = true;
 
         // Reset game state
@@ -227,6 +287,24 @@ public class GamePanel extends JPanel implements ActionListener {
         timer.setDelay(80);
         timer.start(); // Restart the timer for the game
         repaint(); // Redraw the panel with the reset state
+    }
+
+    public void gameMenu() {
+        // Hide all game-related buttons
+        playAgainButton.setVisible(false);
+        mainMenuButton.setVisible(false);
+        quitButton.setVisible(true);
+        playButton.setVisible(true);
+
+        // Set states to show the main menu
+        running = false;
+        showMainMenu = true;
+
+        repaint(); // Refresh the screen
+    }
+
+    public void quit() {
+        System.exit(0);
     }
 
     @Override
